@@ -3,7 +3,8 @@ import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import SandboxSettings, { SANDBOX_SETTINGS_ID } from "../../models/SandboxSettingsModel"
 import { ensureInstallationAdmin } from "../../utils/installationAdmins"
-import { OpenShellConfiguration, OpenShellSandboxes, openShellSandboxes } from "./OpenShellSandboxes"
+import { OPENSHELL_DEFAULTS, OpenShellConfiguration, OpenShellSandboxes, openShellSandboxes } from "./OpenShellSandboxes"
+import { packageCacheFolder, packageCacheOf, withoutPackageCache, withPackageCache } from "./packageCache"
 import { languagesOfLabels, SandboxLanguage, withLanguageLabels, withoutLanguageLabels } from "./sandboxLanguages"
 import { invalidateSandboxSettings } from "./sandboxSettings"
 
@@ -11,6 +12,7 @@ import { invalidateSandboxSettings } from "./sandboxSettings"
 type SandboxWorkloadTemplate = import("@nvidia/openshell-sdk").SandboxWorkloadTemplate
 type TemplateClient = Awaited<ReturnType<OpenShellSandboxes["templates"]>>["client"]
 type TemplateInit = Parameters<TemplateClient["create"]>[0]
+type DriverConfig = NonNullable<NonNullable<SandboxWorkloadTemplate["spec"]>["driverConfig"]>
 
 /** What an installation administrator sets of a workload template: the rest of it, set on the gateway otherwise, is kept. */
 export interface SandboxTemplateInput {
@@ -21,6 +23,11 @@ export interface SandboxTemplateInput {
     environment?: Record<string, string>
     /** The languages its image holds: a sandbox needing them is created from it. Missing, those it had stay. */
     languages?: SandboxLanguage[]
+    /**
+     * The PersistentVolumeClaim its sandboxes share as their package cache, labelled on the cluster for the gateway to
+     * mount it. Null or empty: each sandbox keeps its own. Missing: the one it had stays.
+     */
+    packageCache?: string | null
 }
 
 /** A workload template of the gateway as the installation page lists it. */
@@ -33,6 +40,8 @@ export interface SandboxTemplateItem {
     labels: Record<string, string>
     environment: Record<string, string>
     languages: SandboxLanguage[]
+    /** The PersistentVolumeClaim mounted as the package cache of its sandboxes, when there is one. */
+    packageCache?: string
     /** Whether it has settings this page does not show (runtime class, GPU, service level): they are kept when it is changed here. */
     advanced: boolean
     createdAt?: Date
@@ -46,7 +55,7 @@ const REFUSED = new Set([3, 9, 11])
 /** Told when a template could not be put back after its change was refused: it is no longer on the gateway. */
 export type TemplateLost = (error: unknown, previous: { name: string; image?: string }) => void
 
-const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined): SandboxTemplateItem => {
+const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined, cacheFolder: string): SandboxTemplateItem => {
     const workload = template.spec?.workload
     const created = template.metadata?.createdTime
     const driverConfig = template.spec?.driverConfig
@@ -58,18 +67,20 @@ const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined): S
         labels: withoutLanguageLabels(template.metadata?.labels),
         environment: { ...workload?.environment },
         languages: languagesOfLabels(template.metadata?.labels),
-        advanced: Boolean(
-            (driverConfig && Object.keys(driverConfig).length) || template.spec?.desiredServiceLevel || workload?.resources?.gpu || Object.keys(template.metadata?.annotations ?? {}).length
-        ),
+        packageCache: packageCacheOf(driverConfig, cacheFolder),
+        // The cache is shown: only the rest of the driver config is a setting the page does not show.
+        advanced: Boolean(withoutPackageCache(driverConfig, cacheFolder) || template.spec?.desiredServiceLevel || workload?.resources?.gpu || Object.keys(template.metadata?.annotations ?? {}).length),
         createdAt: created ? new Date(Number(created.seconds) * 1000) : undefined,
         inUse: template.metadata?.name === inUse
     }
 }
 
 /** The template to create: what the page sets, over what the gateway had that the page does not show. */
-const templateOf = (name: string, input: SandboxTemplateInput, previous?: SandboxWorkloadTemplate): TemplateInit => {
+const templateOf = (name: string, input: SandboxTemplateInput, cacheFolder: string, previous?: SandboxWorkloadTemplate): TemplateInit => {
     const gpu = previous?.spec?.workload?.resources?.gpu
     const resources = input.cpu || input.memory || gpu ? { cpu: input.cpu ?? "", memory: input.memory ?? "", gpu } : undefined
+    const kept = previous?.spec?.driverConfig
+    const driverConfig = input.packageCache === undefined ? kept : (withPackageCache(kept, input.packageCache?.trim(), cacheFolder) as DriverConfig | undefined)
     return {
         metadata: {
             name,
@@ -78,7 +89,7 @@ const templateOf = (name: string, input: SandboxTemplateInput, previous?: Sandbo
         },
         spec: {
             workload: { image: input.image, environment: input.environment ?? {}, resources },
-            driverConfig: previous?.spec?.driverConfig,
+            driverConfig,
             desiredServiceLevel: previous?.spec?.desiredServiceLevel
         }
     }
@@ -118,6 +129,11 @@ export default class SandboxTemplateService {
         return { sandboxes, ...(await sandboxes.templates()) }
     }
 
+    /** Where the sandboxes keep their package cache: where a template mounts the claim shared by its sandboxes. */
+    private get cacheFolder() {
+        return packageCacheFolder(this.config.OPENSHELL_SANDBOX_ROOT || OPENSHELL_DEFAULTS.root)
+    }
+
     /** The template new sandboxes are created from: the one saved from the console, else the environment's. */
     private async inUse(): Promise<string | undefined> {
         const stored = await SandboxSettings.findById(SANDBOX_SETTINGS_ID, { template: 1 }).lean()
@@ -131,16 +147,16 @@ export default class SandboxTemplateService {
         const templates = await client.listAll({ workspace }).catch(error => {
             throw refused(error, "")
         })
-        return templates.map(template => toItem(template, inUse)).sort((a, b) => a.name.localeCompare(b.name))
+        return templates.map(template => toItem(template, inUse, this.cacheFolder)).sort((a, b) => a.name.localeCompare(b.name))
     }
 
     async create(name: string, input: SandboxTemplateInput): Promise<SandboxTemplateItem> {
         const { sandboxes, client, workspace } = await this.gateway()
-        const created = await client.create(templateOf(name, input), { workspace }).catch(error => {
+        const created = await client.create(templateOf(name, input, this.cacheFolder), { workspace }).catch(error => {
             throw refused(error, name)
         })
         sandboxes.forgetTemplates()
-        return toItem(created, await this.inUse())
+        return toItem(created, await this.inUse(), this.cacheFolder)
     }
 
     /**
@@ -159,7 +175,7 @@ export default class SandboxTemplateService {
         })
         // Gone or back, the templates this replica read are no longer what the gateway has.
         sandboxes.forgetTemplates()
-        const saved = await client.create(templateOf(name, input, previous), { workspace }).catch(async error => {
+        const saved = await client.create(templateOf(name, input, this.cacheFolder, previous), { workspace }).catch(async error => {
             const restored = await client
                 .create({ metadata: { name, labels: previous.metadata?.labels, annotations: previous.metadata?.annotations }, spec: previous.spec }, { workspace })
                 .then(() => true)
@@ -177,7 +193,7 @@ export default class SandboxTemplateService {
             await SandboxSettings.updateOne({ _id: SANDBOX_SETTINGS_ID }, { $set: { templateRevision: randomUUID() } }, { upsert: true })
             invalidateSandboxSettings()
         }
-        return toItem(saved, inUse)
+        return toItem(saved, inUse, this.cacheFolder)
     }
 
     /** Refused for the template new sandboxes are created from: they would no longer start. */

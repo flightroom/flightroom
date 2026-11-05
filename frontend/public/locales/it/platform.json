@@ -4838,9 +4838,13 @@
                 "environment": "Variabili d'ambiente",
                 "environment_help": "Una per riga, nella forma NOME=valore. Gli amministratori dell'installazione le possono leggere: non metterci segreti.",
                 "languages": "Linguaggi",
-                "languages_help": "Cosa l'immagine sa compilare ed eseguire. Una nuova sandbox nasce dal template che ha tutti i linguaggi dei suoi repository (Node.js per ogni frontend): quello in uso se li ha, altrimenti quello con meno linguaggi. Se nessuno li ha tutti si usa il template in uso, e i controlli che non può eseguire vengono saltati."
+                "languages_help": "Cosa l'immagine sa compilare ed eseguire. Una nuova sandbox nasce dal template che ha tutti i linguaggi dei suoi repository (Node.js per ogni frontend): quello in uso se li ha, altrimenti quello con meno linguaggi. Se nessuno li ha tutti si usa il template in uso, e i controlli che non può eseguire vengono saltati.",
+                "package_cache": "Cache dei pacchetti (PVC)",
+                "package_cache_placeholder": "sandbox-pkg-cache",
+                "package_cache_help": "Il PersistentVolumeClaim che le sandbox di questo template condividono per i pacchetti scaricati (pnpm, npm, Maven, pip, Go, NuGet): un pacchetto si scarica una volta per tutte. Deve stare nel namespace delle sandbox, con le label di approvazione del gateway. Vuoto: ogni sandbox scarica da sé."
             },
             "validation": {
+                "package_cache": "Il nome di un PersistentVolumeClaim: lettere minuscole, cifre, - e .",
                 "duplicate": "Ogni chiave può comparire una volta sola",
                 "too_many": "Al massimo {{max}} righe",
                 "name": "Lettere minuscole, cifre e trattini, al massimo 19 caratteri, senza trattino all'inizio o alla fine",

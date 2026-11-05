@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import { StringDecoder } from "node:string_decoder"
 import TelemetryService from "../TelemetryService"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
+import { packageCacheFolder } from "./packageCache"
 import { languagesOfLabels, TemplateLanguages, templateForLanguages } from "./sandboxLanguages"
 import { mongoSandboxPool, PooledSandbox, SandboxPool } from "./sandboxPool"
 import { effectiveOpenShellConfig, SANDBOX_SETTINGS_CACHE_MS } from "./sandboxSettings"
@@ -273,7 +274,8 @@ class OpenShellCommandSandbox implements CommandSandbox {
         private readonly workspace: string | undefined,
         readonly root: string,
         readonly home?: string,
-        private readonly previewUrl?: string
+        private readonly previewUrl?: string,
+        readonly cache?: string
     ) {}
 
     async exec(command: string[], options: SandboxExecOptions = {}): Promise<SandboxCommandResult> {
@@ -565,7 +567,9 @@ export class OpenShellSandboxes {
             const name = await this.sandboxFor(client, owner, settings, key, lifecycle, folder !== key.toLowerCase(), organizationId)
             await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, key, lifecycle, error))
             // The sweep may have moved it back into the pool while it was looked up: the key then gets another one.
-            if ((await this.pool.byName(name))?.key === key) return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL)
+            if ((await this.pool.byName(name))?.key === key) {
+                return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL, packageCacheFolder(this.root))
+            }
         }
         throw new Error(`The sandbox of ${key} kept going back to the pool`)
     }

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Run A Backend On A Schedule**: the **Runtime** tab of a backend has an **Execution** card with one choice: **Always on**, every hour, every day at 03:00, every Monday at 03:00, or a custom cron. On a schedule the backend is deployed as a Kubernetes CronJob that starts its image, lets it do its work and exit, in the browser's time zone: no port, probes, Service nor URL, and it leaves the `services.flightroom` ConfigMap. It reuses the chart's `cronjob.yaml` of the maintenance agents, so no chart file changes. `backend_create` and `backend_update` take `schedule` and `timeZone`; a schedule clears the exposure path
+- **A Package Cache Shared By The Sandboxes**: a sandbox template takes a **Package cache (PVC)** on the installation page, the name of a PersistentVolumeClaim its sandboxes mount on `/sandbox/cache`, so a package is downloaded once for all of them instead of once per sandbox. The coding agent's install, scripts, commands and live previews keep the downloads of pnpm, npm, yarn, Maven, pip, Go and NuGet there, on the sandbox's own disk when no claim is mounted. The claim must be in the namespace of the sandboxes with the gateway's approval labels, and the gateway needs `allow_driver_config`; every other setting of the template's driver config is kept, and only the rest of it still counts as settings the page does not show
 
 ### Fixed
 

@@ -53,6 +53,8 @@ const MEMORY = /^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|k|M|G|T)?$/
 const LABEL_KEY = /^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?\/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$/
 const LABEL_VALUE = /^([A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?)?$/
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/
+/** A PersistentVolumeClaim name: a DNS subdomain. */
+const CLAIM = /^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$/
 /** The backend's limits: beyond them a template is refused without saying which field. */
 const MAX_IMAGE = 500
 const MAX_LABELS = 20
@@ -68,6 +70,7 @@ interface TemplateFormValues {
     labels: string
     environment: string
     languages: SandboxLanguage[]
+    packageCache: string
 }
 
 /** The KEY=value lines, blank ones skipped: the key trimmed, the value as typed, spaces included. */
@@ -95,7 +98,8 @@ const toFormValues = (template?: SandboxTemplate): TemplateFormValues => ({
     // A new template is labelled as the ones of this console on the gateway are.
     labels: template ? toText(template.labels) : "app=flightroom",
     environment: template ? toText(template.environment) : "",
-    languages: template?.languages ?? []
+    languages: template?.languages ?? [],
+    packageCache: template?.packageCache ?? ""
 })
 
 const toInput = (values: TemplateFormValues): SandboxTemplateInput => ({
@@ -105,7 +109,8 @@ const toInput = (values: TemplateFormValues): SandboxTemplateInput => ({
     labels: toPairs(values.labels),
     environment: toPairs(values.environment),
     // In the order of the list, as the backend gives them back.
-    languages: SANDBOX_LANGUAGES.filter(language => values.languages.includes(language))
+    languages: SANDBOX_LANGUAGES.filter(language => values.languages.includes(language)),
+    packageCache: values.packageCache.trim() || null
 })
 
 /** What the gateway said of a template it refused: written for the log, in English, but it says what to fix. */
@@ -272,6 +277,15 @@ const TemplateFormDialog: React.FC<TemplateFormDialogProps> = ({ open, onOpenCha
                                     {t("installation.templates.form.languages_help")}
                                 </p>
                             </fieldset>
+                            <TextField<TemplateFormValues>
+                                name="packageCache"
+                                label={t("installation.templates.form.package_cache")}
+                                placeholder={t("installation.templates.form.package_cache_placeholder")}
+                                description={t("installation.templates.form.package_cache_help")}
+                                autoComplete="off"
+                                rules={pattern(CLAIM, t("installation.templates.validation.package_cache"))}
+                                dataTestId="installation-template-package-cache"
+                            />
                             <TextareaField<TemplateFormValues>
                                 name="labels"
                                 label={t("installation.templates.form.labels")}

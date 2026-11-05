@@ -53,7 +53,9 @@ export const sandboxTemplateBodySchema = {
         memory: { type: ["string", "null"], pattern: "^([0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti|k|M|G|T)?)?$", maxLength: 20 },
         labels: { type: "object", maxProperties: 20, propertyNames: { pattern: LABEL_KEY }, additionalProperties: { type: "string", pattern: `^(${LABEL_NAME})?$` } },
         environment: { type: "object", maxProperties: 50, propertyNames: { pattern: "^[A-Za-z_][A-Za-z0-9_]{0,127}$" }, additionalProperties: { type: "string", maxLength: 4000 } },
-        languages: { type: "array", uniqueItems: true, items: { type: "string", enum: [...SANDBOX_LANGUAGES] } }
+        languages: { type: "array", uniqueItems: true, items: { type: "string", enum: [...SANDBOX_LANGUAGES] } },
+        // A PersistentVolumeClaim name: a DNS subdomain.
+        packageCache: { type: ["string", "null"], pattern: "^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?)?$", maxLength: 253 }
     }
 }
 

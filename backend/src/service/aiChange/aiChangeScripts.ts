@@ -6,6 +6,7 @@ import { isLockfilePath, isProtectedPath, isSecretPath, resolveInsideWorkingCopy
 import { serviceUrlVariable } from "../gitops/applicationManifests"
 import { LlmTool } from "../llm"
 import { CommandSandbox, SandboxCommandResult } from "../sandbox/commandSandbox"
+import { packageCacheEnvironment } from "../sandbox/packageCache"
 import { TarEntry, tarGz } from "../sandbox/tarArchive"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
 import { maskedEnd } from "./commandOutput"
@@ -880,11 +881,13 @@ export class AiChangeScriptRunner {
      * CI keeps test runners out of watch mode, but not for the install: under CI pnpm and yarn freeze the
      * lockfile, and an install after the agent changed a dependency would fail. The npmrc of the repository is the
      * user configuration npm, pnpm and yarn 1 read: given to the package manager only, not to a command of the agent.
+     * The downloads go to the package cache of the sandbox, which its template may share with every other sandbox.
      */
     private environmentOf(sandbox: CommandSandbox, repository: ScriptRepository, install: boolean, npmrc = true): Record<string, string> {
         return {
             ...(install ? {} : { CI: "true" }),
             ...(npmrc && repository.npmrc ? { npm_config_userconfig: this.npmrcOf(sandbox, repository) } : {}),
+            ...(sandbox.cache ? packageCacheEnvironment(sandbox.cache) : {}),
             HOME: sandbox.home ?? `${sandbox.root}/home`,
             COREPACK_ENABLE_DOWNLOAD_PROMPT: "0",
             NO_COLOR: "1",

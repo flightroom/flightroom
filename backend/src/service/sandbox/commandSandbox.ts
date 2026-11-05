@@ -26,6 +26,11 @@ export interface CommandSandbox {
     readonly root: string
     /** The home of the commands, with the caches of the package managers, shared by the conversations of the sandbox; under the root when missing. */
     readonly home?: string
+    /**
+     * Where the package managers keep what they download, next to the home: a template of the gateway may mount there a
+     * volume every sandbox shares. In the home, where each tool puts it, when missing.
+     */
+    readonly cache?: string
     /** Runs a program, never through a shell unless the command is one. */
     exec(command: string[], options?: SandboxExecOptions): Promise<SandboxCommandResult>
     /** Exposes a loopback HTTP service through the gateway, when the sandbox supports it. */

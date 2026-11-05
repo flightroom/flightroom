@@ -315,6 +315,39 @@ describe("InstallationController", () => {
             expect(unknown.statusCode).toBe(400)
         })
 
+        it("Given a package cache claim, when a template is saved, then it is mounted on the cache folder, listed apart from the settings not shown, and removed with an empty claim while the rest stays", async () => {
+            inUse(undefined)
+            templateClient.create.mockImplementation(async (init: { metadata: { name: string }; spec: Record<string, unknown> }) => ({
+                metadata: { name: init.metadata.name, labels: {} },
+                spec: init.spec
+            }))
+            const mount = {
+                volumes: [{ name: "flightroom-package-cache", persistent_volume_claim: { claim_name: "sandbox-pkg-cache", read_only: false } }],
+                containers: { agent: { volume_mounts: [{ name: "flightroom-package-cache", mount_path: "/sandbox/cache", read_only: false }] } }
+            }
+
+            const created = await app.inject({ method: "POST", url: "/installation/sandbox-templates/node", payload: { image: "node:24", packageCache: "sandbox-pkg-cache" } })
+
+            expect(created.statusCode).toBe(201)
+            expect(templateClient.create).toHaveBeenLastCalledWith(expect.objectContaining({ spec: expect.objectContaining({ driverConfig: { kubernetes: mount } }) }), { workspace: "flightroom" })
+            expect(created.json()).toMatchObject({ packageCache: "sandbox-pkg-cache", advanced: false })
+
+            templateClient.get.mockResolvedValueOnce({ ...KATA, spec: { ...KATA.spec, driverConfig: { kubernetes: { ...KATA_DRIVER.kubernetes, ...mount } } } })
+            templateClient.delete.mockResolvedValue({ outcome: "completed" })
+            const kept = await app.inject({ method: "PUT", url: "/installation/sandbox-templates/flightroom-java", payload: { image: "maven:3.9.9" } })
+            expect(kept.json()).toMatchObject({ packageCache: "sandbox-pkg-cache", advanced: true })
+
+            templateClient.get.mockResolvedValueOnce({ ...KATA, spec: { ...KATA.spec, driverConfig: { kubernetes: { ...KATA_DRIVER.kubernetes, ...mount } } } })
+            const removed = await app.inject({ method: "PUT", url: "/installation/sandbox-templates/flightroom-java", payload: { image: "maven:3.9.9", packageCache: null } })
+
+            expect(removed.statusCode).toBe(200)
+            expect(templateClient.create).toHaveBeenLastCalledWith(expect.objectContaining({ spec: expect.objectContaining({ driverConfig: KATA_DRIVER }) }), { workspace: "flightroom" })
+            expect(removed.json().packageCache).toBeUndefined()
+
+            const invalid = await app.inject({ method: "POST", url: "/installation/sandbox-templates/node", payload: { image: "node:24", packageCache: "Not A Claim" } })
+            expect(invalid.statusCode).toBe(400)
+        })
+
         it("Given an identity of the installation the gateway does not let manage templates, when they are listed or saved, then it is forbidden with what the gateway says to do", async () => {
             const auth = Object.assign(new Error("[auth] workspace role 'admin' required in workspace 'default'; ask a platform admin to run: openshell workspace member add"), {
                 code: "auth",

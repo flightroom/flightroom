@@ -64,6 +64,8 @@ export interface SandboxTemplateInput {
     labels: Record<string, string>
     environment: Record<string, string>
     languages: SandboxLanguage[]
+    /** The PersistentVolumeClaim its sandboxes share as their package cache; null for none. */
+    packageCache: string | null
 }
 
 export interface SandboxTemplate {
@@ -74,6 +76,8 @@ export interface SandboxTemplate {
     labels: Record<string, string>
     environment: Record<string, string>
     languages: SandboxLanguage[]
+    /** The PersistentVolumeClaim mounted as the package cache of its sandboxes. */
+    packageCache?: string
     /** Settings this page does not show (runtime class, GPU, service level): kept when the template is changed here. */
     advanced: boolean
     createdAt?: string
