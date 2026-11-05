@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793916934.2561975,
-    "ast_hash": "a77a166153c7f54c83b7355d240fa3ef",
+    "mtime": 1793918323.5990505,
+    "ast_hash": "88d74c7cdb9aee9425d33b70814e1920",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4390,13 +4390,13 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793818017.703108,
-    "ast_hash": "636c282e8bf1510e2b20c2a9f39df339",
+    "mtime": 1793917023.2608836,
+    "ast_hash": "884c96c7f742ec755d46a0ce11a5b3bd",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
-    "mtime": 1793818017.706698,
-    "ast_hash": "c10c46fbc292f20011c45f1b5541f391",
+    "mtime": 1793917023.263659,
+    "ast_hash": "5e43e20d47f7ed3672fe66a27e86f159",
     "semantic_hash": ""
   },
   "helm/flightroom/templates/NOTES.txt": {
@@ -4735,8 +4735,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.ts": {
-    "mtime": 1793916813.6234164,
-    "ast_hash": "cbdbc5edb99d66da3bbb3e17b268d089",
+    "mtime": 1793918184.6428976,
+    "ast_hash": "71483810d093d7f3f8645131886265f9",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/commandSandbox.ts": {
@@ -5800,8 +5800,8 @@
     "semantic_hash": ""
   },
   "backend/src/controller/InstallationController.test.ts": {
-    "mtime": 1793916843.2376006,
-    "ast_hash": "73460b01b6c0f44a248a1f6320fe2c02",
+    "mtime": 1793918247.6218672,
+    "ast_hash": "c0e5b47a55b7d9ddcde4ced6b77c94f3",
     "semantic_hash": ""
   },
   "backend/src/controller/InstallationController.ts": {
@@ -5880,8 +5880,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/SandboxTemplateService.ts": {
-    "mtime": 1793916916.8777282,
-    "ast_hash": "95420126dff5c065059ea5b1443d8be1",
+    "mtime": 1793918204.4058554,
+    "ast_hash": "0cd79973d54bbd1f7270e5b166337270",
     "semantic_hash": ""
   },
   "frontend/src/pages/installation/partials/SandboxTemplates.tsx": {
@@ -6160,13 +6160,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/packageCache.test.ts": {
-    "mtime": 1793916842.3681538,
-    "ast_hash": "35854c6f4a477f99f0fd878265da8728",
+    "mtime": 1793918200.7400725,
+    "ast_hash": "1ca5d89757d4a2bcda6e59410d1d2c3e",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/packageCache.ts": {
-    "mtime": 1793916765.6797233,
-    "ast_hash": "d5b6687a48a801aa7ca6debe6487c6d4",
+    "mtime": 1793918172.7706342,
+    "ast_hash": "9077999f13a4f60ab40be56c7a2f8c92",
     "semantic_hash": ""
   }
 }
