@@ -2974,9 +2974,7 @@
             "no_environments": "Il progetto non ha ancora ambienti: l'URL di ognuno comparirà qui quando li crei.",
             "not_exposed": "Non esposto",
             "open_docs": "Documentazione API",
-            "open_openapi": "Specifica OpenAPI",
-            "path_not_set": "Non impostato",
-            "set_in_settings": "Impostalo nelle impostazioni"
+            "open_openapi": "Specifica OpenAPI"
         },
         "latest_version": "Ultima versione",
         "repository": "Repository",

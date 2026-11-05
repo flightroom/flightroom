@@ -2954,9 +2954,7 @@
             "no_environments": "The project has no environments yet: the URL of each one will show here once you create them.",
             "not_exposed": "Not exposed",
             "open_docs": "API docs",
-            "open_openapi": "OpenAPI spec",
-            "path_not_set": "Not set",
-            "set_in_settings": "Set it in the settings"
+            "open_openapi": "OpenAPI spec"
         },
         "latest_version": "Latest version",
         "repository": "Repository",
