@@ -7,18 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.4.0] - 2026-11-05
+
 ### Added
 
+- **A Slug Is Unique Across The Project**: a frontend, a backend or a maintenance agent can no longer take a slug another one of the project already holds, whatever its kind: the slug names the component across the app. Creating one with a slug taken is refused with a conflict that says so
 - **Run A Backend On A Schedule**: the **Runtime** tab of a backend has an **Execution** card with one choice: **Always on**, every hour, every day at 03:00, every Monday at 03:00, or a custom cron. On a schedule the backend is deployed as a Kubernetes CronJob that starts its image, lets it do its work and exit, in the browser's time zone: no port, probes, Service nor URL, and it leaves the `services.flightroom` ConfigMap. It reuses the chart's `cronjob.yaml` of the maintenance agents, so no chart file changes. `backend_create` and `backend_update` take `schedule` and `timeZone`; a schedule clears the exposure path
 - **A Package Cache Shared By The Sandboxes**: a sandbox template takes a **Package cache (PVC)** on the installation page, the name of a PersistentVolumeClaim its sandboxes mount on `/sandbox/cache`, so a package is downloaded once for all of them instead of once per sandbox. The coding agent's install, scripts, commands and live previews keep the downloads of pnpm, npm, yarn, Maven, pip, Go and NuGet there, on the sandbox's own disk when no claim is mounted. The claim must be in the namespace of the sandboxes with the gateway's approval labels, and the gateway needs `allow_driver_config`; every other setting of the template's driver config is kept, and only the rest of it still counts as settings the page does not show
 
+### Changed
+
+- **The Variables Of A Resource Type Come First**: on a resource, the fields of its type sit above the card of the variables it adds, and the fixed variables of a variant are listed before the custom ones
+
 ### Fixed
 
+- **Link An Existing Repository When Creating A Backend**: picking an existing repository in the new backend form links it instead of creating one from the template, the technology then chosen by hand; going back to a new repository names it after the slug again. The repositories are listed by name
+- **The Endpoint Card Of A Backend Without Docs And OpenAPI Paths**: the card no longer shows the documentation and OpenAPI paths
+- **Telemetry Tab While The Environments Load**: the telemetry tab of the project settings shows a loader while the environments load, no longer resets its form on every render meanwhile, and saving waits for them, so it cannot reset the environments chosen
 - **A Live Preview Gets The Backend's Own Variables**: the live preview of a backend, of a frontend or of a domain now hands each backend the variables it sets itself (the **Injected variables**), the secret ones included, as the deploy does: its secret ones over its secrets and resources, its plain ones over those, LOG_LEVEL, LOG_JSON and ENVIRONMENT over all. Before, a backend reading an API key of its own started without it in the preview. They reach the preview even when Argo CD is not initialized, as they are set on the backend itself
 - **Live Preview Of A Domain With Several Frontends And Backends**: the preview opens on the frontend at the root of the host, the one without an exposure path, rather than on whichever came first, and starts it last, after the backends and the other frontends. The other frontends exposed under a path are routed on the preview's gateway under it, the path stripped, as the backends already were; one of them that fails to start no longer stops the whole preview. A backend on a schedule is left out of a domain's preview, and its own preview answers that it has no server to show
 - **Live Preview Window Opens With Its Link**: the button no longer opens an empty window while the preview starts; it opens the preview once its link is there, and when the browser blocks that window a notification carries the link
 - **Live Preview Logs**: the console logs each live preview, the components it starts, the names (never the values) of the variables each one gets, how long each development server took, and why one failed
-
 - **kube-green Puts Argo CD Environments To Sleep**: the Applications of the backends and frontends ignore in the diff `spec.replicas` of the Deployments and `spec.suspend` of the CronJobs, so self-heal no longer brings back in seconds the pods kube-green scales to 0. A deploy now syncs those Applications explicitly, so a change of replicas alone still reaches the cluster; an Argo CD account with rules narrower than `applications, *` needs `applications, sync`
 
 ## [15.3.0] - 2026-11-04
