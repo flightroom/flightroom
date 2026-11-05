@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.4.1] - 2026-11-05
+
+### Fixed
+
+- **The Package Cache No Longer Breaks The Sandboxes**: a template mounts its package cache on `/tmp/flightroom-package-cache` instead of `/sandbox/cache`. A volume mounted under `/sandbox` takes the workspace over from the gateway, which then no longer mounts its own volume on `/sandbox`, and the sandboxes failed with `mkdir: cannot create directory '/sandbox/spaces': Permission denied`. A template saved with 15.4.0 shows its claim as before: saving it again moves the mount
+
 ## [15.4.0] - 2026-11-05
 
 ### Added
