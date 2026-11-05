@@ -323,7 +323,7 @@ describe("InstallationController", () => {
             }))
             const mount = {
                 volumes: [{ name: "flightroom-package-cache", persistent_volume_claim: { claim_name: "sandbox-pkg-cache", read_only: false } }],
-                containers: { agent: { volume_mounts: [{ name: "flightroom-package-cache", mount_path: "/sandbox/cache", read_only: false }] } }
+                containers: { agent: { volume_mounts: [{ name: "flightroom-package-cache", mount_path: "/tmp/flightroom-package-cache", read_only: false }] } }
             }
 
             const created = await app.inject({ method: "POST", url: "/installation/sandbox-templates/node", payload: { image: "node:24", packageCache: "sandbox-pkg-cache" } })

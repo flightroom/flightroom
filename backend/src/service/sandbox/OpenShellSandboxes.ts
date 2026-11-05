@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import { StringDecoder } from "node:string_decoder"
 import TelemetryService from "../TelemetryService"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
-import { packageCacheFolder } from "./packageCache"
+import { PACKAGE_CACHE_FOLDER } from "./packageCache"
 import { languagesOfLabels, TemplateLanguages, templateForLanguages } from "./sandboxLanguages"
 import { mongoSandboxPool, PooledSandbox, SandboxPool } from "./sandboxPool"
 import { effectiveOpenShellConfig, SANDBOX_SETTINGS_CACHE_MS } from "./sandboxSettings"
@@ -568,7 +568,7 @@ export class OpenShellSandboxes {
             await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, key, lifecycle, error))
             // The sweep may have moved it back into the pool while it was looked up: the key then gets another one.
             if ((await this.pool.byName(name))?.key === key) {
-                return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL, packageCacheFolder(this.root))
+                return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL, PACKAGE_CACHE_FOLDER)
             }
         }
         throw new Error(`The sandbox of ${key} kept going back to the pool`)

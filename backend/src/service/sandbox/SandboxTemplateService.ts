@@ -3,8 +3,8 @@ import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import SandboxSettings, { SANDBOX_SETTINGS_ID } from "../../models/SandboxSettingsModel"
 import { ensureInstallationAdmin } from "../../utils/installationAdmins"
-import { OPENSHELL_DEFAULTS, OpenShellConfiguration, OpenShellSandboxes, openShellSandboxes } from "./OpenShellSandboxes"
-import { packageCacheFolder, packageCacheOf, withoutPackageCache, withPackageCache } from "./packageCache"
+import { OpenShellConfiguration, OpenShellSandboxes, openShellSandboxes } from "./OpenShellSandboxes"
+import { packageCacheOf, withoutPackageCache, withPackageCache } from "./packageCache"
 import { languagesOfLabels, SandboxLanguage, withLanguageLabels, withoutLanguageLabels } from "./sandboxLanguages"
 import { invalidateSandboxSettings } from "./sandboxSettings"
 
@@ -55,7 +55,7 @@ const REFUSED = new Set([3, 9, 11])
 /** Told when a template could not be put back after its change was refused: it is no longer on the gateway. */
 export type TemplateLost = (error: unknown, previous: { name: string; image?: string }) => void
 
-const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined, cacheFolder: string): SandboxTemplateItem => {
+const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined): SandboxTemplateItem => {
     const workload = template.spec?.workload
     const created = template.metadata?.createdTime
     const driverConfig = template.spec?.driverConfig
@@ -67,20 +67,20 @@ const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined, ca
         labels: withoutLanguageLabels(template.metadata?.labels),
         environment: { ...workload?.environment },
         languages: languagesOfLabels(template.metadata?.labels),
-        packageCache: packageCacheOf(driverConfig, cacheFolder),
+        packageCache: packageCacheOf(driverConfig),
         // The cache is shown: only the rest of the driver config is a setting the page does not show.
-        advanced: Boolean(withoutPackageCache(driverConfig, cacheFolder) || template.spec?.desiredServiceLevel || workload?.resources?.gpu || Object.keys(template.metadata?.annotations ?? {}).length),
+        advanced: Boolean(withoutPackageCache(driverConfig) || template.spec?.desiredServiceLevel || workload?.resources?.gpu || Object.keys(template.metadata?.annotations ?? {}).length),
         createdAt: created ? new Date(Number(created.seconds) * 1000) : undefined,
         inUse: template.metadata?.name === inUse
     }
 }
 
 /** The template to create: what the page sets, over what the gateway had that the page does not show. */
-const templateOf = (name: string, input: SandboxTemplateInput, cacheFolder: string, previous?: SandboxWorkloadTemplate): TemplateInit => {
+const templateOf = (name: string, input: SandboxTemplateInput, previous?: SandboxWorkloadTemplate): TemplateInit => {
     const gpu = previous?.spec?.workload?.resources?.gpu
     const resources = input.cpu || input.memory || gpu ? { cpu: input.cpu ?? "", memory: input.memory ?? "", gpu } : undefined
     const kept = previous?.spec?.driverConfig
-    const driverConfig = input.packageCache === undefined ? kept : (withPackageCache(kept, input.packageCache?.trim(), cacheFolder) as DriverConfig | undefined)
+    const driverConfig = input.packageCache === undefined ? kept : (withPackageCache(kept, input.packageCache?.trim()) as DriverConfig | undefined)
     return {
         metadata: {
             name,
@@ -129,11 +129,6 @@ export default class SandboxTemplateService {
         return { sandboxes, ...(await sandboxes.templates()) }
     }
 
-    /** Where the sandboxes keep their package cache: where a template mounts the claim shared by its sandboxes. */
-    private get cacheFolder() {
-        return packageCacheFolder(this.config.OPENSHELL_SANDBOX_ROOT || OPENSHELL_DEFAULTS.root)
-    }
-
     /** The template new sandboxes are created from: the one saved from the console, else the environment's. */
     private async inUse(): Promise<string | undefined> {
         const stored = await SandboxSettings.findById(SANDBOX_SETTINGS_ID, { template: 1 }).lean()
@@ -147,16 +142,16 @@ export default class SandboxTemplateService {
         const templates = await client.listAll({ workspace }).catch(error => {
             throw refused(error, "")
         })
-        return templates.map(template => toItem(template, inUse, this.cacheFolder)).sort((a, b) => a.name.localeCompare(b.name))
+        return templates.map(template => toItem(template, inUse)).sort((a, b) => a.name.localeCompare(b.name))
     }
 
     async create(name: string, input: SandboxTemplateInput): Promise<SandboxTemplateItem> {
         const { sandboxes, client, workspace } = await this.gateway()
-        const created = await client.create(templateOf(name, input, this.cacheFolder), { workspace }).catch(error => {
+        const created = await client.create(templateOf(name, input), { workspace }).catch(error => {
             throw refused(error, name)
         })
         sandboxes.forgetTemplates()
-        return toItem(created, await this.inUse(), this.cacheFolder)
+        return toItem(created, await this.inUse())
     }
 
     /**
@@ -175,7 +170,7 @@ export default class SandboxTemplateService {
         })
         // Gone or back, the templates this replica read are no longer what the gateway has.
         sandboxes.forgetTemplates()
-        const saved = await client.create(templateOf(name, input, this.cacheFolder, previous), { workspace }).catch(async error => {
+        const saved = await client.create(templateOf(name, input, previous), { workspace }).catch(async error => {
             const restored = await client
                 .create({ metadata: { name, labels: previous.metadata?.labels, annotations: previous.metadata?.annotations }, spec: previous.spec }, { workspace })
                 .then(() => true)
@@ -193,7 +188,7 @@ export default class SandboxTemplateService {
             await SandboxSettings.updateOne({ _id: SANDBOX_SETTINGS_ID }, { $set: { templateRevision: randomUUID() } }, { upsert: true })
             invalidateSandboxSettings()
         }
-        return toItem(saved, inUse, this.cacheFolder)
+        return toItem(saved, inUse)
     }
 
     /** Refused for the template new sandboxes are created from: they would no longer start. */
