@@ -15,18 +15,23 @@ import { resourceEnvironmentValues } from "../../types/ResourceCatalog"
 import { runtimeVariables } from "../../types/RuntimeVariables"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
+import { AiModelService } from "../AiModelService"
+import { calculateAiUsageCost, ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
 import BaseAuthorizedService, { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { mapValues } from "../ContainerEnvironmentService"
 import { isScheduled } from "../gitops/applicationManifests"
+import { LlmConfiguration, LlmUsage } from "../llm"
 import { projectDesignSystemOf } from "../ProjectService"
 import { OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
 import { languagesOfComponents } from "../sandbox/sandboxLanguages"
 import { effectiveOpenShellConfig } from "../sandbox/sandboxSettings"
-import { RepositoryWorkspaceService } from "../workspace/RepositoryWorkspaceService"
+import { ORCHESTRATOR_COMMITTER } from "../workspace/GitWorkingCopy"
+import { OpenedWorkspace, RepositoryWorkspaceService } from "../workspace/RepositoryWorkspaceService"
 import { BackendComponent, FrontendComponent, fromBackend, fromFrontend, RepositoryComponent } from "../workspace/repositoryComponent"
 import { sandboxLifecycle } from "./aiChangeSandboxes"
-import { AiChangeScriptRunner, ScriptRepository } from "./aiChangeScripts"
-import { loggable } from "./aiChangeShared"
+import { AiChangeScriptRunner, PREVIEW_FILE, ScriptRepository } from "./aiChangeScripts"
+import { authorOf, loggable } from "./aiChangeShared"
+import { commitPreviewFile, discoverPreview } from "./previewDiscovery"
 
 export interface StandalonePreviewInput {
     kind: "frontend" | "backend" | "domain"
@@ -51,6 +56,20 @@ const noBackend = () =>
     createBusinessException({
         code: "OPENSHELL_PREVIEW_NO_BACKEND",
         message: "This backend has no code repository connected",
+        statusCode: 422
+    })
+
+const noRepository = () =>
+    createBusinessException({
+        code: "OPENSHELL_PREVIEW_NO_REPOSITORY",
+        message: "This domain has no frontend or backend with a code repository connected",
+        statusCode: 422
+    })
+
+const noServer = () =>
+    createBusinessException({
+        code: "OPENSHELL_PREVIEW_NO_SERVER",
+        message: `This domain has no frontend, and none of its backends could be started: add ${PREVIEW_FILE} to one of them, with "start" and "port"`,
         statusCode: 422
     })
 
@@ -153,9 +172,76 @@ export const previewEnvironments = async (projectId: ReturnType<typeof toObjectI
 export default class StandalonePreviewService extends BaseAuthorizedService {
     constructor(
         user: AuthorizedPrincipal | undefined,
-        private readonly config: OpenShellConfiguration
+        private readonly config: OpenShellConfiguration & LlmConfiguration
     ) {
         super(user)
+    }
+
+    /**
+     * Has an agent find how to start the server of a repository that did not start, then commits what it found: set by
+     * {@link start} for the repositories it previews. Unset, a server that does not start fails the preview as before.
+     */
+    private discover?: (runner: AiChangeScriptRunner, repository: ScriptRepository, reason: string) => Promise<string>
+
+    /** Starts the development server of a repository; one Flightroom cannot start goes to the agent of {@link discover}. */
+    private async startServer(runner: AiChangeScriptRunner, repository: ScriptRepository): Promise<string> {
+        try {
+            const url = await runner.startPreview(repository, true)
+            if (url) return url
+            throw new Error("The development server could not be started")
+        } catch (error) {
+            if (!this.discover) throw error
+            return this.discover(runner, repository, error instanceof Error ? error.message : String(error))
+        }
+    }
+
+    /**
+     * The agent of {@link discover}, on the AI of the project, its tokens counted against what the preview starts. The
+     * preview file it found is committed on the default branch of the repository: the next preview starts at once.
+     */
+    private discoverer(
+        projectId: ReturnType<typeof toObjectId>,
+        owner: { organizationId?: unknown; domainId?: unknown; frontendIds: unknown[]; backendIds: unknown[] },
+        workspaceOf: (repository: ScriptRepository) => OpenedWorkspace | undefined,
+        logContext: object
+    ) {
+        return async (runner: AiChangeScriptRunner, repository: ScriptRepository, reason: string): Promise<string> => {
+            const user = this.getUser()
+            // Without an AI for the project, or past the member's limit, the preview fails as it would have
+            const resolved = await new AiModelService(user, this.config).resolveForProject(projectId).catch(() => undefined)
+            if (!resolved || !user) throw new Error(reason)
+            await ensureWithinTokenLimit(projectId, user._id)
+            const { settings, client } = resolved
+            const record = async (usage: LlmUsage) => {
+                const cost = await calculateAiUsageCost(settings.id, usage).catch(() => undefined)
+                await recordAiUsage({
+                    ...usage,
+                    projectId,
+                    organizationId: owner.organizationId as never,
+                    userId: user._id,
+                    source: "agent",
+                    ...(owner.domainId ? { domainId: owner.domainId as never } : {}),
+                    frontendIds: owner.frontendIds as never,
+                    backendIds: owner.backendIds as never,
+                    aiModelId: settings.id,
+                    provider: settings.provider,
+                    effort: "medium",
+                    ...(cost ? { cost: cost.amount, currency: cost.currency } : {})
+                }).catch(error => fastify.log.warn({ ...logContext, error: loggable(error) }, "Live preview could not record the usage of its agent"))
+            }
+            fastify.log.info({ ...logContext, repository: repository.slug, reason }, "Live preview asks an agent how to start a development server")
+            const found = await discoverPreview(client, runner, repository, reason, record)
+            const workspace = workspaceOf(repository)
+            if (workspace) {
+                const author = user.email && !user.email.startsWith("api-key:") ? authorOf(user) : ORCHESTRATOR_COMMITTER
+                const committed = await commitPreviewFile(workspace.workingCopy, workspace.defaultBranch, found.content, author).catch(error => {
+                    fastify.log.warn({ ...logContext, repository: repository.slug, error: loggable(error) }, "Live preview could not commit the preview file its agent found")
+                    return "failed" as const
+                })
+                fastify.log.info({ ...logContext, repository: repository.slug, branch: workspace.defaultBranch, committed }, "Live preview agent started the development server")
+            }
+            return found.url
+        }
     }
 
     async start(projectId: string, input: StandalonePreviewInput): Promise<{ url: string }> {
@@ -210,9 +296,10 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         const startedAt = Date.now()
         const notConnected = components.filter(component => !isConnected(component)).map(component => `${component.kind}:${component.slug}`)
         fastify.log.info({ ...logContext, components: connected.map(component => `${component.kind}:${component.slug}`), ...(notConnected.length ? { notConnected } : {}) }, "Live preview starting")
-        // A backend opens on its own server; a frontend or a domain opens on a frontend
+        // A backend opens on its own server; a frontend on itself; a domain on a frontend, else on a backend that serves its pages
         if (input.kind === "backend" && connected.length === 0) throw noBackend()
-        if (input.kind !== "backend" && !connected.some(component => component.kind === "frontend")) throw noFrontend()
+        if (input.kind === "frontend" && connected.length === 0) throw noFrontend()
+        if (input.kind === "domain" && connected.length === 0) throw noRepository()
         if (connected.length > 10) throw tooManyRepositories()
 
         const workspaceService = new RepositoryWorkspaceService(this.getUser())
@@ -256,6 +343,17 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             () => sandboxes.acquire(sessionId, lifecycle, sessionId, organizationId ? String(organizationId) : undefined, languagesOfComponents(connected)),
             { previewsEnabled: true }
         )
+        this.discover = this.discoverer(
+            projectObjectId,
+            {
+                organizationId,
+                domainId,
+                frontendIds: connected.filter(component => component.kind === "frontend").map(component => component._id),
+                backendIds: connected.filter(component => component.kind === "backend").map(component => component._id)
+            },
+            repository => workspaces[repositories.indexOf(repository)]?.workspace,
+            logContext
+        )
         const startLocked = (index: number): Promise<string | undefined> =>
             index < ordered.length
                 ? withRepositoryLock(ordered[index].workspace.workingCopy.dir, async () => {
@@ -278,9 +376,9 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         }
     }
 
-    /** A backend alone: its stack unrecognized and without a preview file, the preview fails saying so. */
+    /** A backend alone: its stack unrecognized and without a preview file, an agent finds how to start it, else the preview fails saying so. */
     private async startBackend(component: BackendComponent, repository: ScriptRepository, runner: AiChangeScriptRunner, logContext: object): Promise<string | undefined> {
-        const url = await this.timed(logContext, component, () => runner.startPreview(repository, true))
+        const url = await this.timed(logContext, component, () => this.startServer(runner, repository))
         return url && backendPreviewUrl(url, component.docsPath)
     }
 
@@ -300,36 +398,58 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
 
     /**
      * The backends first, so that the frontends start knowing where they are (`<SLUG>_URL`), then the frontends, the one
-     * the preview opens on last, so that it knows where the others are. A backend whose stack is not recognized and that
-     * has no preview file is left out rather than stopping the preview of the frontend; so is a frontend other than the
-     * one opened that fails to start. The preview opens on the frontend at the root of the host, the one without an
-     * exposure path, else the first; with backends or other frontends exposed under a path, on a gateway that routes them
-     * as the host of an environment does, the path stripped.
+     * the preview opens on last, so that it knows where the others are. A server that does not start goes to the agent of
+     * {@link discover}, when there is one. A backend whose stack is not recognized and that has no preview file is left
+     * out, when the agent cannot start it either, rather than stopping the preview of the frontend; so is a frontend
+     * other than the one opened that fails to start. The preview opens on the frontend at the root of the host, the one
+     * without an exposure path, else the first; with backends or other frontends exposed under a path, on a gateway that
+     * routes them as the host of an environment does, the path stripped. A domain without a frontend, its pages served by
+     * a backend, opens on that backend the same way: the one at the root of the host, else the first started, on its docs
+     * when it has some.
      */
     private async startRepositories(components: RepositoryComponent[], repositories: ScriptRepository[], runner: AiChangeScriptRunner, logContext: object): Promise<string | undefined> {
         const routes: { path: string; repository: ScriptRepository }[] = []
+        const backends: { component: BackendComponent; repository: ScriptRepository; url: string }[] = []
+        const hasFrontend = components.some(component => component.kind === "frontend")
         for (let index = 0; index < components.length; index++) {
             const component = components[index]
             if (component.kind !== "backend") continue
-            if (!(await runner.canPreview(repositories[index]))) {
+            const known = await runner.canPreview(repositories[index])
+            if (!known && !this.discover) {
                 fastify.log.info({ ...logContext, component: `backend:${component.slug}` }, "Live preview leaves out a backend with no known development server")
                 continue
             }
-            if (!(await this.timed(logContext, component, () => runner.startPreview(repositories[index], true)))) {
-                throw new Error(`The backend development server for ${component.slug} could not be started`)
-            }
-            if (component.exposurePath) routes.push({ path: component.exposurePath, repository: repositories[index] })
+            const url = await this.timed(logContext, component, () => this.startServer(runner, repositories[index])).catch(error => {
+                // Its stack unknown and the agent stuck too: the frontend still opens, as without the agent
+                if (known || !hasFrontend) throw error
+                fastify.log.info({ ...logContext, component: `backend:${component.slug}` }, "Live preview leaves out a backend its agent could not start")
+                return undefined
+            })
+            if (url) backends.push({ component, repository: repositories[index], url })
         }
 
         const frontends = components.flatMap((component, index) => (component.kind === "frontend" ? [{ component, repository: repositories[index] }] : []))
+        if (!frontends.length) {
+            const opened = backends.find(({ component }) => isAtRoot(component.exposurePath)) ?? backends[0]
+            if (!opened) throw noServer()
+            const others = backends.filter(backend => backend !== opened && !isAtRoot(backend.component.exposurePath))
+            const url = others.length
+                ? await runner.startGateway(
+                      opened.repository,
+                      others.map(({ component, repository }) => ({ path: component.exposurePath as string, repository }))
+                  )
+                : opened.url
+            return backendPreviewUrl(url, opened.component.docsPath)
+        }
+        for (const { component, repository } of backends) if (component.exposurePath) routes.push({ path: component.exposurePath, repository })
+
         const entry = frontends.find(({ component }) => isAtRoot(component.exposurePath)) ?? frontends[0]
-        if (!entry) return undefined
         for (const { component, repository } of frontends) {
             if (component === entry.component) continue
-            const url = await this.timed(logContext, component, () => runner.startPreview(repository, true)).catch(() => undefined)
+            const url = await this.timed(logContext, component, () => this.startServer(runner, repository)).catch(() => undefined)
             if (url && !isAtRoot(component.exposurePath)) routes.push({ path: component.exposurePath as string, repository })
         }
-        const url = await this.timed(logContext, entry.component, () => runner.startPreview(entry.repository, true))
+        const url = await this.timed(logContext, entry.component, () => this.startServer(runner, entry.repository))
         if (!url) return undefined
         return routes.length ? runner.startGateway(entry.repository, routes) : url
     }

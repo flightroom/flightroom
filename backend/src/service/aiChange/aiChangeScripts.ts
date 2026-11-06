@@ -781,6 +781,17 @@ export class AiChangeScriptRunner {
     }
 
     /**
+     * Starts the preview of the repository again, its plan read anew, the server an earlier start left stopped first:
+     * the preview file the agent looking for one just wrote. Throws why it did not start, the end of its log included.
+     */
+    async restartPreview(repository: ScriptRepository): Promise<string> {
+        this.previewStarted.delete(repository)
+        const url = await this.startPreview(repository, true)
+        if (!url) throw new Error("The development server could not be started")
+        return url
+    }
+
+    /**
      * Whether a preview of the repository can be started: its stack is recognized, or it has a preview file. Read from
      * the working copy, the sandbox is not needed.
      */

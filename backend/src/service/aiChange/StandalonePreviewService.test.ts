@@ -184,6 +184,63 @@ describe("startRepositories, a domain with several frontends and backends", () =
 
         await expect(startRepositories([component("frontend", "shell-fe")], [repository("shell-fe")], runner)).rejects.toThrow("shell-fe did not listen")
     })
+
+    it("Given a domain with a full-stack backend and no frontend, then the preview opens on that backend", async () => {
+        const { runner, started } = fakeRunner()
+
+        const url = await startRepositories([component("backend", "app-be")], [repository("app-be")], runner)
+
+        expect(started).toEqual(["app-be"])
+        expect(url).toBe("https://app-be.preview.test")
+        expect(runner.startGateway).not.toHaveBeenCalled()
+    })
+
+    it("Given a domain of backends only, then it opens on the one at the root, the others routed under their path", async () => {
+        const { runner } = fakeRunner()
+
+        const url = await startRepositories([component("backend", "orders-be", "/api/orders"), component("backend", "app-be")], [repository("orders-be"), repository("app-be")], runner)
+
+        expect(url).toBe("https://gateway.preview.test")
+        expect(runner.startGateway).toHaveBeenCalledWith(repository("app-be"), [{ path: "/api/orders", repository: repository("orders-be") }])
+    })
+
+    it("Given a domain of backends only, none with a known development server, then the preview fails saying so", async () => {
+        const { runner } = fakeRunner()
+        runner.canPreview.mockResolvedValue(false)
+
+        await expect(startRepositories([component("backend", "app-be")], [repository("app-be")], runner)).rejects.toMatchObject({ code: "OPENSHELL_PREVIEW_NO_SERVER" })
+    })
+
+    const withAgent = (discover: unknown) => {
+        const service = new StandalonePreviewService(undefined, {} as never) as unknown as {
+            discover: unknown
+            startRepositories: (...args: unknown[]) => Promise<string | undefined>
+        }
+        service.discover = discover
+        return (components: never[], repositories: never[], runner: unknown) => service.startRepositories(components, repositories, runner, {})
+    }
+
+    it("Given a full-stack backend Flightroom cannot start, then an agent finds how and the preview opens on it", async () => {
+        const { runner } = fakeRunner(["app-be"])
+        runner.canPreview.mockResolvedValue(false)
+        const discover = vi.fn().mockResolvedValue("https://app-be.found.test")
+
+        const url = await withAgent(discover)([component("backend", "app-be")], [repository("app-be")], runner)
+
+        expect(url).toBe("https://app-be.found.test")
+        expect(discover).toHaveBeenCalledWith(runner, repository("app-be"), "app-be did not listen")
+    })
+
+    it("Given a frontend and a backend the agent cannot start either, then the backend is left out and the frontend still opens", async () => {
+        const { runner } = fakeRunner(["orders-be"])
+        runner.canPreview.mockImplementation(async (repo: { slug: string }) => repo.slug !== "orders-be")
+        const discover = vi.fn().mockRejectedValue(new Error("no way found"))
+
+        const url = await withAgent(discover)([component("frontend", "shell-fe"), component("backend", "orders-be", "/api")], [repository("shell-fe"), repository("orders-be")], runner)
+
+        expect(url).toBe("https://shell-fe.preview.test")
+        expect(runner.startGateway).not.toHaveBeenCalled()
+    })
 })
 
 describe("backendPreviewUrl", () => {
